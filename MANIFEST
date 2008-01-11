@@ -1,0 +1,15 @@
+lib/Cache/Memcached/LibMemcached.pm
+LibMemcached.xs
+Makefile.PL
+MANIFEST			This list of files
+perl-libmemcached.c
+perl-libmemcached.h
+ppport.h
+svk-commitg9aRg.tmp
+t/01_load.t
+t/02_basic.t
+t/03_compress.t
+t/99_pod-coverage.t
+t/99_pod.t
+typemap
+META.yml                                 Module meta-data (added by MakeMaker)
