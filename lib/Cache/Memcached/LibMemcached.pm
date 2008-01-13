@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 38585 2008-01-13T13:02:42.849386Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 38592 2008-01-13T14:59:20.030194Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -14,7 +14,7 @@ use constant COMPRESS_SAVINGS => 0.20;
 our ($VERSION, @ISA, %EXPORT_TAGS, @EXPORT_OK);
 BEGIN
 {
-    $VERSION = '0.00003';
+    $VERSION = '0.00004';
     if ($] > 5.006) {
         require XSLoader;
         XSLoader::load(__PACKAGE__, $VERSION);
@@ -248,6 +248,33 @@ Set the value of compress_savings
 =head2 get_compress_savings
 
 Return the current value of compress_savings
+
+=head1 VARIOUS MEMCACHED MODULES
+
+Below are the various memcached modules available on CPAN. 
+
+Please check tool/benchmark.pl for a live comparison of these modules.
+(except for Cache::Memcached::XS, which I wasn't able to compile under my
+main dev environment)
+
+=head2 Cache::Memcached
+
+This is the "main" module. It's mostly written in Perl.
+
+=head2 Cache::Memcached::LibMemcached
+
+Cache::Memcached::LibMemcached, which is the module for which your reading
+the document of, is a perl binding for libmemcached (http://tangent.org/552/libmemcached.html). Not to be confused with libmemcache (see below).
+
+=head2 Cache::Memcached::XS
+
+Cache::Memcached::XS is a binding for libmemcache (http://people.freebsd.org/~seanc/libmemcache/).
+The main memcached site at http://danga.com/memcached/apis.bml seems to 
+indicate that the underlying libmemcache is no longer in active development.
+
+=head2 Cache::Memcached::Fast
+
+Cache::Memcached::Fast is a memcached client written in XS from scratch.
 
 =head1 AUTHOR
 

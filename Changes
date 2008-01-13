@@ -1,6 +1,16 @@
 Changes
 =======
 
+0.00004 - 13 Jan 2008
+  - No code change.
+  - Note in POD what the differences between other memcached clients are.
+    rt #32277
+  - Update tools/benchmark.pl to include the following:
+    * comparisons between get() for small scalar, complex data structures,
+      and compressed data
+    * comparisons between set() for small scalar, complex data structures,
+      and compressed data
+
 0.00003 - 13 Jan 2008
   - Revert back to go without using backend proxy.
   - Fix segmentation fault when using get_multi() without debugging enabled.
