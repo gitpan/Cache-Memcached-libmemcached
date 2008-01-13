@@ -6,7 +6,7 @@
 
 #include "perl-libmemcached.h";
 
-MODULE = Cache::Memcached::LibMemcached    PACKAGE = Cache::Memcached::LibMemcached::Backend   PREFIX = Cache_LibMemcached_
+MODULE = Cache::Memcached::LibMemcached    PACKAGE = Cache::Memcached::LibMemcached   PREFIX = Cache_LibMemcached_
 
 PROTOTYPES: DISABLE
 
@@ -14,12 +14,23 @@ BOOT:
     Cache_LibMemcached_bootstrap();
 
 SV *
-Cache_LibMemcached_create(pkg, have_zlib)
+Cache_LibMemcached__XS_new(pkg, have_zlib, compress_enabled, compress_threshold, compress_savings)
         char *pkg;
         bool have_zlib;
+        bool compress_enabled;
+        size_t compress_threshold;
+        float compress_savings;
+    CODE:
+        RETVAL = Cache_LibMemcached_create(pkg, have_zlib, compress_enabled, compress_threshold, compress_savings);
+    OUTPUT:
+        RETVAL
 
 void
 Cache_LibMemcached_DESTROY(cache)
+        Cache_LibMemcached *cache;
+
+void
+Cache_LibMemcached_server_list_free(cache)
         Cache_LibMemcached *cache;
 
 Cache_LibMemcached_rc
@@ -34,16 +45,25 @@ Cache_LibMemcached_server_add_unix_socket(cache, filename)
         char *filename;
 
 Cache_LibMemcached_rc
-Cache_LibMemcached_set_raw(cache, key, value, expires, flags)
+Cache_LibMemcached_set(cache, key, value, expires = 0)
         Cache_LibMemcached *cache;
         SV *key;
         SV *value;
         time_t expires;
-        unsigned int flags;
-    CODE:
-        RETVAL = Cache_LibMemcached_set_raw(cache, key, value, expires, flags);
-    OUTPUT:
-        RETVAL
+
+Cache_LibMemcached_rc
+Cache_LibMemcached_add(cache, key, value, expires = 0)
+        Cache_LibMemcached *cache;
+        SV *key;
+        SV *value;
+        time_t expires;
+
+Cache_LibMemcached_rc
+Cache_LibMemcached_replace(cache, key, value, expires = 0)
+        Cache_LibMemcached *cache;
+        SV *key;
+        SV *value;
+        time_t expires;
 
 SV *
 Cache_LibMemcached_get(cache, key)
@@ -89,4 +109,59 @@ Cache_LibMemcached_decr(cache, key, offset = 1)
         Cache_LibMemcached *cache;
         SV *key;
         unsigned int offset;
+
+Cache_LibMemcached_rc
+Cache_LibMemcached_flush_all(cache, expiration = 0)
+        Cache_LibMemcached *cache;
+        time_t expiration;
+
+void
+Cache_LibMemcached_set_compress_threshold(cache, value)
+        Cache_LibMemcached *cache;
+        size_t value;
+    CODE:
+        MEMCACHED_COMPRESS_THRESHOLD(cache) = value;
+
+IV
+Cache_LibMemcached_get_compress_threshold(cache)
+        Cache_LibMemcached *cache;
+    CODE:
+        RETVAL = MEMCACHED_COMPRESS_THRESHOLD(cache);
+    OUTPUT:
+        RETVAL
+
+void
+Cache_LibMemcached_set_compress_enabled(cache, value)
+        Cache_LibMemcached *cache;
+        bool value;
+    CODE:
+        MEMCACHED_COMPRESS_ENABLED(cache) = value;
+
+bool
+Cache_LibMemcached_get_compress_enabled(cache)
+        Cache_LibMemcached *cache;
+    CODE:
+        RETVAL = MEMCACHED_COMPRESS_ENABLED(cache);
+    OUTPUT:
+        RETVAL
+
+void
+Cache_LibMemcached_set_compress_savings(cache, value)
+        Cache_LibMemcached *cache;
+        NV value;
+    CODE:
+        MEMCACHED_COMPRESS_SAVINGS(cache) = value;
+
+NV
+Cache_LibMemcached_get_compress_savings(cache)
+        Cache_LibMemcached *cache;
+    CODE:
+        RETVAL = MEMCACHED_COMPRESS_SAVINGS(cache);
+    OUTPUT:
+        RETVAL
+
+
+
+
+
 

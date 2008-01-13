@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/Makefile.PL 38462 2008-01-11T06:55:29.954196Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/Makefile.PL 38578 2008-01-13T12:00:09.618732Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -24,8 +24,8 @@ my %INFO = (
     NAME         => 'Cache::Memcached::LibMemcached',
     OBJECT       => '$(O_FILES)',
     PREREQ_PM    => {
-        'Class::Accessor::Fast' => 0,
         'Storable'              => 0,
+        'Compress::Zlib'        => 0,
     },
     VERSION_FROM => 'lib/Cache/Memcached/LibMemcached.pm',
     test         => {

@@ -12,7 +12,10 @@ t/02_basic.t
 t/03_compress.t
 t/04_get_multi.t
 t/05_sequence.t
+t/06_flush.t
+t/07_add-replace.t
 t/99_pod-coverage.t
 t/99_pod.t
+tools/benchmark.pl
 typemap
 META.yml                                 Module meta-data (added by MakeMaker)

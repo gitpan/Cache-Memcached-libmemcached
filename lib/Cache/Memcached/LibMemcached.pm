@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 38563 2008-01-13T00:40:10.296281Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 38585 2008-01-13T13:02:42.849386Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -6,7 +6,6 @@
 package Cache::Memcached::LibMemcached;
 use strict;
 use warnings;
-use base qw(Class::Accessor::Fast);
 use Carp 'croak';
 use Storable;
 use constant HAVE_ZLIB => eval "use Compress::Zlib (); 1;";
@@ -15,7 +14,7 @@ use constant COMPRESS_SAVINGS => 0.20;
 our ($VERSION, @ISA, %EXPORT_TAGS, @EXPORT_OK);
 BEGIN
 {
-    $VERSION = '0.00002';
+    $VERSION = '0.00003';
     if ($] > 5.006) {
         require XSLoader;
         XSLoader::load(__PACKAGE__, $VERSION);
@@ -26,22 +25,18 @@ BEGIN
     }
 }
 
-__PACKAGE__->mk_accessors($_) for qw(
-    compress_threshold compress_enable backend
-);
-
 sub new
 {
     my $class   = shift;
     my $args    = shift || {};
     my $servers = delete $args->{servers};
-    my $backend = delete $args->{backend} || 'Cache::Memcached::LibMemcached::Backend';
 
-    my $self    = $class->SUPER::new({ 
-        compress_enable => 1,
-        %$args,
-        backend => $backend->create(HAVE_ZLIB)
-    });
+    my $self    = $class->_XS_new(
+        HAVE_ZLIB,
+        exists $args->{compress_enable} ? $args->{compress_enable} : 1,
+        $args->{compress_threshold} || 0,
+        COMPRESS_SAVINGS,
+    );
 
     $self->set_servers($servers);
     return $self;
@@ -51,7 +46,10 @@ sub set_servers
 {
     my $self = shift;
     my $servers = shift;
-    my $backend = $self->backend;
+
+    # Setting the servers requires us to discard the current server list
+    # as well.
+    $self->server_list_free();
 
     foreach my $server (@{ $servers || [] }) {
         if (ref $server) {
@@ -59,56 +57,17 @@ sub set_servers
         }
         my ($hostname, $port) = split(/:/, $server);
         if ($port) {
-            $backend->server_add( $hostname, $port );
+            $self->server_add( $hostname, $port );
         } else {
-            $backend->server_add_unix( $server );
+            $self->server_add_unix( $server );
         }
     }
 
     return $self;
 }
 
-sub set
-{
-    my $self    = shift;
-    my $key     = shift;
-    my $val     = shift;
-
-    my $expires = 0;
-    my $flags   = 0;
-
-    if ( ref $val ) {
-        $val = Storable::freeze($val);
-        $flags |= Cache::Memcached::LibMemcached::Constants::F_STORABLE;
-    }
-
-    use bytes;
-    my $len     = length $val;
-
-    if ( HAVE_ZLIB ) {
-        my $threshold = $self->compress_threshold;
-        if ($threshold && $self->compress_enable && $len >= $threshold) {
-            my $c_val = Compress::Zlib::memGzip($val);
-            my $c_len = length($c_val);
-
-            # do we want to keep it?
-            if ($c_len < $len*(1 - COMPRESS_SAVINGS)) {
-                $val = $c_val;
-                $len = $c_len;
-                $flags |= Cache::Memcached::LibMemcached::Constants::F_COMPRESS;
-            }
-        }
-    }
-
-    $self->backend->set_raw($key, $val, $expires, $flags);
-}
-
-sub get { shift->backend->get(@_) }
-sub get_multi { shift->backend->get_multi(@_) }
-sub delete { shift->backend->delete(@_) }
-sub incr { shift->backend->incr(@_) }
-sub decr { shift->backend->decr(@_) }
 *remove = \&delete;
+*enable_compress = \&set_compress_enabled;
 
 1;
 
@@ -151,7 +110,10 @@ There's also a Memcached::libmemcached available on googlecode, but the
 intent of Cache::Memcached::LibMemcached is to provide users with consistent
 API as Cache::Memcached.
 
-=head1 METHODS
+=head1 Cache::Memcached COMPATIBLE METHODS
+
+Except for the minor incompatiblities, below methods are generally compatible 
+with Cache::Memcached.
 
 =head2 new
 
@@ -159,12 +121,12 @@ Takes on parameter, a hashref of options.
 
 =head2 set_servers
 
-Sets the server list. Note that currently you should not expect this to
-I<replace> the server list that Cache::Memcached::LibMemcached works -- 
-instead it ADDS to the list. Normally you shouldn't call this method directly,
-because it's called by new(). 
+  $memd->set_servers( [ qw(serv1:port1 serv2:port2 ...) ]);
 
-This behavior *may* change in later releases.
+Sets the server list. 
+
+As of 0.00003, this method works like Cache::Memcached and I<replaces> the
+current server list with the new one 
 
 =head2 get
 
@@ -191,6 +153,18 @@ it was stored successfully.
 
 Currently the arrayref form of $key is NOT supported. Perhaps in the future.
 
+=head2 add
+
+  $memd->add($key, $value[, $expires]);
+
+Like set(), but only stores in memcache if they key doesn't already exist.
+
+=head2 replace
+
+  $memd->replace($key, $value[, $expires]);
+
+Like set(), but only stores in memcache if they key already exist.
+
 =head2 incr
 
 =head2 decr
@@ -213,6 +187,67 @@ Deletes a key.
 
 XXX - The behavior when second argument is specified may differ from
 Cache::Memcached -- this hasn't been very well tested. Patches welcome!
+
+=head2 flush_all
+
+  $memd->fush_all;
+
+Runs the memcached "flush_all" command on all configured hosts, emptying all 
+their caches. 
+
+=head2 set_compress_threshold
+
+  $memd->set_compress_threshold($threshold);
+
+Set the compress threshold.
+
+=head2 enable_compress
+
+  $memd->enable_compress($bool);
+
+This is actually an alias to set_compress_enabled(). The original version
+from Cache::Memcached is, despite its naming, a setter as well.
+
+=head1 Cache::Memcached::LibMemcached SPECIFIC METHODS
+
+These methods are libmemcached-specific.
+
+=head2 server_add
+
+Adds a memcached server.
+
+=head2 server_add_unix_socket
+
+Adds a memcached server, connecting via unix socket.
+
+=head2 server_list_free
+
+Frees the memcached server list.
+
+=head1 UTILITY METHODS
+
+WARNING: Please do not consider the existance for these methods to be final.
+They may disappear from future releases.
+
+=head2 get_compress_threshold
+
+Return the current value of compress_threshold
+
+=head2 set_compress_enabled
+
+Set the value of compress_enabled
+
+=head2 get_compress_enabled
+
+Return the current value of compress_enabled
+
+=head2 set_compress_savings
+
+Set the value of compress_savings
+
+=head2 get_compress_savings
+
+Return the current value of compress_savings
 
 =head1 AUTHOR
 

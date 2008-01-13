@@ -6,7 +6,7 @@ BEGIN
     if (! $ENV{ MEMCACHED_SERVER } ) {
         plan(skip_all => "Define MEMCACHED_SERVER (e.g. localhost:11211) to run this test");
     } else {
-        plan(tests => 8);
+        plan(tests => 18);
     }
     use_ok("Cache::Memcached::LibMemcached");
 }
@@ -33,4 +33,23 @@ isa_ok($cache, "Cache::Memcached::LibMemcached");
     ok( $cache->delete("foo") );
     ok( ! $cache->get("foo"),  "delete works");
     ok( ! $cache->delete("foo") );
+}
+
+{
+    # test accessors
+    foreach my $threshold (10_000, 5_000, 0) {
+        $cache->set_compress_threshold($threshold);
+        is( $cache->get_compress_threshold(), $threshold );
+    }
+
+    foreach my $savings qw(0.2 0.5 0.8) {
+        $cache->set_compress_savings($savings);
+        is( $cache->get_compress_savings(), $savings );
+    }
+
+    foreach my $enabled (0, 1, 0, 1) {
+        $cache->set_compress_enabled($enabled);
+        is( !!$cache->get_compress_enabled(), !!$enabled );
+    }
+    
 }

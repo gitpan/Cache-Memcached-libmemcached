@@ -1,6 +1,24 @@
 Changes
 =======
 
+0.00003 - 13 Jan 2008
+  - Revert back to go without using backend proxy.
+  - Fix segmentation fault when using get_multi() without debugging enabled.
+  - Implement set() as a pure C function.
+  - Implement add().
+  - Implement replace().
+  - Implement flush_all().
+  - Implement accessors:
+    * set_compress_threshold
+    * get_compress_threshold
+    * set_compress_enabled
+    * get_compress_enabled
+    * set_compress_savings
+    * get_compress_savings
+    * compress_enabled
+  - Fix behavior of set_servers() to actually replace the server list.
+  - Add tools/benchmark.pl to compare against vanilla Cache::Memcached.
+
 0.00002 - 13 Jan 2008
   - Implement get_multi(), delete(), incr(), decr()
   - Implement connecting to memcached via unix socket.
