@@ -1,4 +1,4 @@
-# $Id$
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 38563 2008-01-13T00:40:10.296281Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -15,7 +15,7 @@ use constant COMPRESS_SAVINGS => 0.20;
 our ($VERSION, @ISA, %EXPORT_TAGS, @EXPORT_OK);
 BEGIN
 {
-    $VERSION = '0.00001';
+    $VERSION = '0.00002';
     if ($] > 5.006) {
         require XSLoader;
         XSLoader::load(__PACKAGE__, $VERSION);
@@ -40,7 +40,7 @@ sub new
     my $self    = $class->SUPER::new({ 
         compress_enable => 1,
         %$args,
-        backend => $backend->create()
+        backend => $backend->create(HAVE_ZLIB)
     });
 
     $self->set_servers($servers);
@@ -79,7 +79,7 @@ sub set
 
     if ( ref $val ) {
         $val = Storable::freeze($val);
-        $flags |= F_STORABLE;
+        $flags |= Cache::Memcached::LibMemcached::Constants::F_STORABLE;
     }
 
     use bytes;
@@ -95,7 +95,7 @@ sub set
             if ($c_len < $len*(1 - COMPRESS_SAVINGS)) {
                 $val = $c_val;
                 $len = $c_len;
-                $flags |= F_COMPRESS;
+                $flags |= Cache::Memcached::LibMemcached::Constants::F_COMPRESS;
             }
         }
     }
@@ -103,28 +103,12 @@ sub set
     $self->backend->set_raw($key, $val, $expires, $flags);
 }
 
-sub get
-{
-    my $self   = shift;
-    my $key    = shift;
-
-    my ($val, $flags) = $self->backend->get_raw($key);
-
-    if (defined $val) {
-        if ($flags & F_STORABLE) {
-            $val = Storable::thaw($val);
-        }
-
-        if ($flags & F_COMPRESS) {
-            if (! HAVE_ZLIB) {
-                croak "tried to fetch compress value, but we don't have Compress::Zlib";
-            }
-            $val = Compress::Zlib::memGunzip($val);
-        }
-    }
-
-    return $val;
-}
+sub get { shift->backend->get(@_) }
+sub get_multi { shift->backend->get_multi(@_) }
+sub delete { shift->backend->delete(@_) }
+sub incr { shift->backend->incr(@_) }
+sub decr { shift->backend->decr(@_) }
+*remove = \&delete;
 
 1;
 
@@ -148,6 +132,15 @@ Cache::Memcached::LibMemcached - Perl Interface to libmemcached
   $val = $memd->get("my_key");
   $val = $memd->get("object_key");
   if ($val) { print $val->{complex}->[2] }
+
+  $memd->incr("key");
+  $memd->decr("key");
+  $memd->incr("key", 2);
+
+  $memd->delete("key");
+  $memd->remove("key"); # Alias to delete
+
+  my $hashref = $memd->get_multi(@keys);
 
 =head1 DESCRIPTION
 
@@ -182,6 +175,13 @@ with Storable, if necessary) or undef.
 
 Currently the arrayref form of $key is NOT supported. Perhaps in the future.
 
+=head2 get_multi
+
+  my $hashref = $memd->get_multi(@keys);
+
+Retrieves multiple keys from the memcache doing just one query.
+Returns a hashref of key/value pairs that were available.
+
 =head2 set
 
   $memd->set($key, $value[, $expires]);
@@ -191,77 +191,28 @@ it was stored successfully.
 
 Currently the arrayref form of $key is NOT supported. Perhaps in the future.
 
-=head1 CONSTANTS
+=head2 incr
 
-=head2  MEMCACHED_CLIENT_ERROR
+=head2 decr
 
-=head2  MEMCACHED_CONNECTION_BIND_FAILURE
+  my $newval = $memd->incr($key);
+  my $newval = $memd->decr($key);
+  my $newval = $memd->incr($key, $offset);
+  my $newval = $memd->decr($key, $offset);
 
-=head2  MEMCACHED_CONNECTION_SOCKET_CREATE_FAILURE
+Atomically increments or decrements the specified the integer value specified 
+by $key. Returns undef if the key doesn't exist on the server.
 
-=head2  MEMCACHED_DATA_DOES_NOT_EXIST
+=head2 delete
 
-=head2  MEMCACHED_DATA_EXISTS
+=head2 remove
 
-=head2  MEMCACHED_DELETED
+  $memd->delete($key);
 
-=head2  MEMCACHED_END
+Deletes a key.
 
-=head2  MEMCACHED_ERRNO
-
-=head2  MEMCACHED_FAILURE
-
-=head2  MEMCACHED_FAIL_UNIX_SOCKET
-
-=head2  MEMCACHED_FETCH_NOTFINISHED
-
-=head2  MEMCACHED_HOST_LOOKUP_FAILURE
-
-=head2  MEMCACHED_MAXIMUM_RETURN
-
-=head2  MEMCACHED_MEMORY_ALLOCATION_FAILURE
-
-=head2  MEMCACHED_NOTFOUND
-
-=head2  MEMCACHED_NOTSTORED
-
-=head2  MEMCACHED_NOT_SUPPORTED
-
-=head2  MEMCACHED_NO_KEY_PROVIDED
-
-=head2  MEMCACHED_NO_SERVERS
-
-=head2  MEMCACHED_PARTIAL_READ
-
-=head2  MEMCACHED_PROTOCOL_ERROR
-
-=head2  MEMCACHED_READ_FAILURE
-
-=head2  MEMCACHED_SERVER_ERROR
-
-=head2  MEMCACHED_SOME_ERRORS
-
-=head2  MEMCACHED_STAT
-
-=head2  MEMCACHED_STORED
-
-=head2  MEMCACHED_SUCCESS
-
-=head2  MEMCACHED_TIMEOUT
-
-=head2  MEMCACHED_UNKNOWN_READ_FAILURE
-
-=head2  MEMCACHED_VALUE
-
-=head2  MEMCACHED_WRITE_FAILURE
-
-=head2 F_STORABLE
-
-For internal use. Indicates the value was serialized via Storable.
-
-=head2 F_COMPRESS
-
-For internal use. Indicates the value was compressed via Compress::Zlib.
+XXX - The behavior when second argument is specified may differ from
+Cache::Memcached -- this hasn't been very well tested. Patches welcome!
 
 =head1 AUTHOR
 

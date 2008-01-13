@@ -1,4 +1,4 @@
-# $Id$
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/Makefile.PL 38462 2008-01-11T06:55:29.954196Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.

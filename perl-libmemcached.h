@@ -26,7 +26,14 @@
 #define F_STORABLE 1
 #define F_COMPRESS 2
 
-typedef memcached_st Cache_LibMemcached;
+typedef struct Cache_LibMemcached {
+    memcached_st *memcached;
+    bool          have_zlib;
+} Cache_LibMemcached;
+
+#define MEMCACHED_CACHE(x) x->memcached
+#define MEMCACHED_HAVE_ZLIB(x) x->have_zlib
+
 typedef memcached_return Cache_LibMemcached_rc;
 
 SV *Cache_LibMemcached_create();
@@ -39,6 +46,38 @@ Cache_LibMemcached_rc Cache_LibMemcached_set_raw(
     SV *value,
     time_t expires,
     unsigned int flags
+);
+
+SV * Cache_LibMemcached_get(
+    Cache_LibMemcached *cache,
+    SV *key
+);
+
+SV * Cache_LibMemcached_mget(
+    Cache_LibMemcached *cache,
+    char **keys,
+    size_t *key_len_list,
+    unsigned int keys_len
+);
+
+SV * Cache_LibMemcached_delete(
+    Cache_LibMemcached *cache,
+    SV *key,
+    time_t expiration
+);
+
+SV *
+Cache_LibMemcached_incr(
+    Cache_LibMemcached *cache,
+    SV *key_sv,
+    unsigned int offset
+);
+
+SV *
+Cache_LibMemcached_decr(
+    Cache_LibMemcached *cache,
+    SV *key_sv,
+    unsigned int offset
 );
 
 #endif /* __PERL_LIBMEMCACHED_H__ */
