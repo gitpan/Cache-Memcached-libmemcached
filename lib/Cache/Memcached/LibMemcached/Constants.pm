@@ -1,7 +1,12 @@
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached/Constants.pm 38780 2008-01-14T02:11:15.195880Z daisuke  $
+#
+# Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
+# All rights reserved.
 
 package Cache::Memcached::LibMemcached::Constants;
 use strict;
-use Export 'import';
+use warnings;
+use Exporter 'import';
 
 1;
 
@@ -78,6 +83,28 @@ Cache::Memcached::LibMemcached::Constants - Constants
 =head2  MEMCACHED_VALUE
 
 =head2  MEMCACHED_WRITE_FAILURE
+
+=head2  MEMCACHED_DISTRIBUTION_CONSISTENT
+
+=head2  MEMCACHED_DISTRIBUTION_MODULA
+
+=head2  MEMCACHED_HASH_CRC
+
+=head2  MEMCACHED_HASH_DEFAULT
+
+=head2  MEMCACHED_HASH_FNV1A_32
+
+=head2  MEMCACHED_HASH_FNV1A_64
+
+=head2  MEMCACHED_HASH_FNV1_32
+
+=head2  MEMCACHED_HASH_FNV1_64
+
+=head2  MEMCACHED_HASH_HSIEH
+
+=head2  MEMCACHED_HASH_KETAMA
+
+=head2  MEMCACHED_HASH_MD5
 
 =head2 F_STORABLE
 

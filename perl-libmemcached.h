@@ -43,6 +43,7 @@ typedef struct Cache_LibMemcached {
 #define MEMCACHED_COMPRESS_SAVINGS(x)   x->compress_savings
 
 typedef memcached_return Cache_LibMemcached_rc;
+typedef memcached_stat_st Cache_LibMemcached_stat;
 
 SV *Cache_LibMemcached_create(
         char *pkg,
@@ -118,5 +119,11 @@ Cache_LibMemcached_decr(
     SV *key_sv,
     unsigned int offset
 );
+
+SV *
+Cache_LibMemcached_stats(
+    Cache_LibMemcached *cache
+);
+
 
 #endif /* __PERL_LIBMEMCACHED_H__ */

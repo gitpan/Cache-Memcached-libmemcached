@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Cache-Memcached-LibMemcached
-version:             0.00004
+version:             0.00005
 abstract:            Perl Interface to libmemcached
 license:             ~
 author:              

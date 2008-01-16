@@ -12,7 +12,7 @@
     { \
         SV *sv = newSViv(x); \
         newCONSTSUB(stash, name, sv); \
-        av_push(export, sv); \
+        av_push(export, newSVpv(name, PL_na)); \
     }
 
 void
@@ -59,6 +59,32 @@ Cache_LibMemcached_bootstrap()
     CONSTSUBi( "MEMCACHED_FETCH_NOTFINISHED", MEMCACHED_FETCH_NOTFINISHED );
     CONSTSUBi( "MEMCACHED_TIMEOUT", MEMCACHED_TIMEOUT );
     CONSTSUBi( "MEMCACHED_MAXIMUM_RETURN", MEMCACHED_MAXIMUM_RETURN );
+
+/*
+    CONSTSUBi( "MEMCACHED_BEHAVIOR_NO_BLOCK", MEMCACHED_BEHAVIOR_NO_BLOCK );
+  MEMCACHED_BEHAVIOR_TCP_NODELAY,
+  MEMCACHED_BEHAVIOR_HASH,
+  MEMCACHED_BEHAVIOR_KETAMA,
+  MEMCACHED_BEHAVIOR_SOCKET_SEND_SIZE,
+  MEMCACHED_BEHAVIOR_SOCKET_RECV_SIZE,
+  MEMCACHED_BEHAVIOR_CACHE_LOOKUPS,
+  MEMCACHED_BEHAVIOR_SUPPORT_CAS,
+  MEMCACHED_BEHAVIOR_POLL_TIMEOUT,
+  MEMCACHED_BEHAVIOR_DISTRIBUTION,
+*/
+
+    CONSTSUBi( "MEMCACHED_DISTRIBUTION_MODULA", MEMCACHED_DISTRIBUTION_MODULA );
+    CONSTSUBi( "MEMCACHED_DISTRIBUTION_CONSISTENT", MEMCACHED_DISTRIBUTION_CONSISTENT );
+
+    CONSTSUBi( "MEMCACHED_HASH_DEFAULT", MEMCACHED_HASH_DEFAULT );
+    CONSTSUBi( "MEMCACHED_HASH_MD5", MEMCACHED_HASH_MD5 );
+    CONSTSUBi( "MEMCACHED_HASH_CRC", MEMCACHED_HASH_CRC );
+    CONSTSUBi( "MEMCACHED_HASH_FNV1_64", MEMCACHED_HASH_FNV1_64 );
+    CONSTSUBi( "MEMCACHED_HASH_FNV1A_64", MEMCACHED_HASH_FNV1A_64 );
+    CONSTSUBi( "MEMCACHED_HASH_FNV1_32", MEMCACHED_HASH_FNV1_32 );
+    CONSTSUBi( "MEMCACHED_HASH_FNV1A_32", MEMCACHED_HASH_FNV1A_32 );
+    CONSTSUBi( "MEMCACHED_HASH_KETAMA", MEMCACHED_HASH_KETAMA );
+    CONSTSUBi( "MEMCACHED_HASH_HSIEH", MEMCACHED_HASH_HSIEH );
 }
 
 /* The next functions (compress, uncompress, freeze, thaw) are implemented
@@ -312,6 +338,7 @@ void
 Cache_LibMemcached_DESTROY(cache)
         Cache_LibMemcached *cache;
 {
+    memcached_quit(MEMCACHED_CACHE(cache));
     memcached_free(MEMCACHED_CACHE(cache));
 }
 
@@ -488,6 +515,160 @@ Cache_LibMemcached_flush_all(cache, expiration)
         time_t expiration;
 {
     return memcached_flush( MEMCACHED_CACHE(cache), expiration );
+}
+
+void
+Cache_LibMemcached_set_no_block(cache, value)
+        Cache_LibMemcached *cache;
+        IV value;
+{
+    memcached_behavior_set( MEMCACHED_CACHE(cache), 
+        MEMCACHED_BEHAVIOR_NO_BLOCK, (void *) value );
+}
+
+IV
+Cache_LibMemcached_is_no_block(cache)
+        Cache_LibMemcached *cache;
+{
+    return memcached_behavior_get( MEMCACHED_CACHE(cache), 
+        MEMCACHED_BEHAVIOR_NO_BLOCK );
+}
+
+void
+Cache_LibMemcached_set_distribution_method(cache, value)
+        Cache_LibMemcached *cache;
+        IV value;
+{
+    memcached_behavior_set( MEMCACHED_CACHE(cache), 
+        MEMCACHED_BEHAVIOR_DISTRIBUTION, &value );
+}
+
+IV
+Cache_LibMemcached_get_distribution_method(cache)
+        Cache_LibMemcached *cache;
+{
+    return memcached_behavior_get( MEMCACHED_CACHE(cache), 
+        MEMCACHED_BEHAVIOR_DISTRIBUTION );
+}
+
+void
+Cache_LibMemcached_set_hashing_algorithm(cache, value)
+        Cache_LibMemcached *cache;
+        IV value;
+{
+    memcached_behavior_set( MEMCACHED_CACHE(cache), 
+        MEMCACHED_BEHAVIOR_HASH, &value );
+}
+
+IV
+Cache_LibMemcached_get_hashing_algorithm(cache)
+        Cache_LibMemcached *cache;
+{
+    return memcached_behavior_get( MEMCACHED_CACHE(cache), 
+        MEMCACHED_BEHAVIOR_HASH );
+}
+
+Cache_LibMemcached_rc
+Cache_LibMemcached_populate_stathv(cache, hv, stat)
+        Cache_LibMemcached *cache;
+        HV *hv;
+        Cache_LibMemcached_stat stat;
+{
+    Cache_LibMemcached_rc rc;
+    char **list;
+    char **ptr;
+
+    list = memcached_stat_get_keys(MEMCACHED_CACHE(cache), &stat, &rc);
+    if (rc != MEMCACHED_SUCCESS)
+        return rc;
+
+    for(ptr = list; *ptr; ptr++) {
+        SV *key, *sv;
+        char *value;
+
+        value = memcached_stat_get_value(
+            MEMCACHED_CACHE(cache),
+            &stat,
+            *ptr,
+            &rc
+        );
+        if (rc != MEMCACHED_SUCCESS) {
+            free(value);
+            break;
+        }
+        key = newSVpvf("%s", *ptr);
+        sv  = newSVpvf("%s", value);
+        if (hv_store_ent(hv, key, sv, 0) == NULL) {
+            /* croak("Failed to insert into hash"); */
+            free(value);
+            break;
+        }
+        free(value);
+    }
+    free(list);
+
+    return rc;
+}
+        
+
+/* This is so half-baked, it's not even funny */
+SV *
+Cache_LibMemcached_stats(cache)
+        Cache_LibMemcached *cache;
+{
+    Cache_LibMemcached_rc   rc;
+    Cache_LibMemcached_stat *stat;
+    memcached_server_st *server_list;
+    unsigned int i;
+    unsigned int server_count;
+    HV *hv, *hosts_hv, *single_host_hv;
+
+    stat = memcached_stat(MEMCACHED_CACHE(cache), NULL, &rc);
+    if (rc != MEMCACHED_SUCCESS)
+        croak("memcached_stat failed: %s", memcached_strerror(MEMCACHED_CACHE(cache), rc));
+
+    /* need a structure like
+     *   { hosts => {
+     *      "server:port" => {
+     *          key => value
+     *      }
+     *    }
+     */
+
+    hosts_hv = newHV();
+    server_list  = memcached_server_list(MEMCACHED_CACHE(cache));
+    server_count = memcached_server_count(MEMCACHED_CACHE(cache));
+    for (i = 0; i < server_count; i++) {
+        SV *key;
+        single_host_hv = newHV();
+
+        rc = Cache_LibMemcached_populate_stathv(cache, single_host_hv, stat[i]);
+        if (rc != MEMCACHED_SUCCESS)
+            break;
+
+        key = newSVpvf("%s:%u", 
+            memcached_server_name(cache, server_list[i]),
+            memcached_server_port(cache, server_list[i])
+        );
+        if (hv_store_ent(hosts_hv, key, newRV_inc((SV *) single_host_hv), 0) == NULL) {
+            /* croak("Failed to insert into hash"); */
+            break;
+        }
+    }
+    free(stat);
+    
+    hv = newHV(); /* top level hash */
+    if (hv_store_ent(hv, newSVpv("hosts", 5), newRV_inc((SV *) hosts_hv), 0) == NULL) {
+        croak("Failed insert into hash");
+    }
+    return newRV_inc((SV *) hv);
+}
+
+void
+Cache_LibMemcached_disconnect_all(cache)
+        Cache_LibMemcached *cache;
+{
+    memcached_quit(MEMCACHED_CACHE(cache));
 }
 
 #endif /* __PERL_LIBMEMCACHED_C__ */

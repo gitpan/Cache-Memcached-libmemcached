@@ -160,8 +160,38 @@ Cache_LibMemcached_get_compress_savings(cache)
     OUTPUT:
         RETVAL
 
+void
+Cache_LibMemcached_set_no_block(cache, value)
+        Cache_LibMemcached *cache;
+        IV value;
 
+IV
+Cache_LibMemcached_is_no_block(cache)
+        Cache_LibMemcached *cache;
 
+void
+Cache_LibMemcached_set_distribution_method(cache, value)
+        Cache_LibMemcached *cache;
+        IV value;
 
+IV
+Cache_LibMemcached_get_distribution_method(cache)
+        Cache_LibMemcached *cache;
 
+void
+Cache_LibMemcached_set_hashing_algorithm(cache, value)
+        Cache_LibMemcached *cache;
+        IV value;
+
+IV
+Cache_LibMemcached_get_hashing_algorithm(cache)
+        Cache_LibMemcached *cache;
+
+SV *
+Cache_LibMemcached_stats(cache)
+        Cache_LibMemcached *cache;
+
+void
+Cache_LibMemcached_disconnect_all(cache)
+        Cache_LibMemcached *cache;
 

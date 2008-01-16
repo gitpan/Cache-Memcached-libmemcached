@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 38592 2008-01-13T14:59:20.030194Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-LibMemcached/trunk/lib/Cache/Memcached/LibMemcached.pm 39061 2008-01-16T17:53:37.871008Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -14,7 +14,7 @@ use constant COMPRESS_SAVINGS => 0.20;
 our ($VERSION, @ISA, %EXPORT_TAGS, @EXPORT_OK);
 BEGIN
 {
-    $VERSION = '0.00004';
+    $VERSION = '0.00005';
     if ($] > 5.006) {
         require XSLoader;
         XSLoader::load(__PACKAGE__, $VERSION);
@@ -39,6 +39,9 @@ sub new
     );
 
     $self->set_servers($servers);
+    if ($args->{no_block}) {
+        $self->set_no_block( $args->{no_block} );
+    }
     return $self;
 }
 
@@ -59,7 +62,7 @@ sub set_servers
         if ($port) {
             $self->server_add( $hostname, $port );
         } else {
-            $self->server_add_unix( $server );
+            $self->server_add_unix_socket( $server );
         }
     }
 
@@ -81,7 +84,7 @@ Cache::Memcached::LibMemcached - Perl Interface to libmemcached
 
   use Cache::Memcached::LibMemcached;
   my $memd = Cache::Memcached::LibMemcached->new({
-    serves => [ "10.0.0.15:11211", "10.0.0.15:11212", "/var/sock/memcached" ],
+    servers => [ "10.0.0.15:11211", "10.0.0.15:11212", "/var/sock/memcached" ],
     compress_threshold => 10_000
   });
 
@@ -208,6 +211,16 @@ Set the compress threshold.
 This is actually an alias to set_compress_enabled(). The original version
 from Cache::Memcached is, despite its naming, a setter as well.
 
+=head2 stats
+
+  my $h = $memd->stats();
+
+This method is still half-baked. Patches welcome.
+
+=head2 disconnect_all
+
+Disconnects from servers
+
 =head1 Cache::Memcached::LibMemcached SPECIFIC METHODS
 
 These methods are libmemcached-specific.
@@ -227,7 +240,7 @@ Frees the memcached server list.
 =head1 UTILITY METHODS
 
 WARNING: Please do not consider the existance for these methods to be final.
-They may disappear from future releases.
+They may be renamed or may entirely disappear from future releases.
 
 =head2 get_compress_threshold
 
@@ -248,6 +261,54 @@ Set the value of compress_savings
 =head2 get_compress_savings
 
 Return the current value of compress_savings
+
+=head1 BEHAVIOR CUSTOMIZATION
+
+Certain libmemcached behaviors can be configured with the following
+methods.
+
+(NOTE: This API is not fixed yet)
+
+=head2 set_no_block
+
+  Cache::Memcached::LibMemcached->new({
+    ...
+    no_block => 1
+  });
+  # or 
+  $memd->set_no_block( 1 );
+
+Set to use blocking/non-blocking I/O. When this is in effect, get() becomes
+flaky, so don't attempt to call it. This has the most effect for set()
+operations, because libmemcached stops waiting for server response after
+writing to the socket (set() will also always return success)
+
+Please consult the man page for C<memcached_behavior_set()> for details 
+before setting.
+
+=head2 is_no_block
+
+Get the current value of no_block behavior.
+
+=head2 set_distribution_method
+
+  $memd->set_distribution_method( MEMCACHED_DISTRIBUTION_CONSISTENT );
+
+Set the distribution behavior.
+
+=head2 get_distribution_method
+
+Get the distribution behavior.
+
+=head2 set_hashing_algorithm
+
+  $memd->set_hashing_algorithm( MEMCACHED_HASH_KETAMA );
+
+Set the hashing algorithm used.
+
+=head2 get_hashing_algorithm
+
+Get the hashing algorithm used.
 
 =head1 VARIOUS MEMCACHED MODULES
 
@@ -275,6 +336,16 @@ indicate that the underlying libmemcache is no longer in active development.
 =head2 Cache::Memcached::Fast
 
 Cache::Memcached::Fast is a memcached client written in XS from scratch.
+
+=head2 Memcached::libmemcached
+
+Memcached::libmemcached is a straight binding to libmemcached. It has all
+of the libmemcached API. If you don't care about a drop-in replacement for
+Cache::Memcached, and want to benefit from *all* of libmemcached offers,
+this is the way to go.
+
+In the future, Cache::Memcached::LibMemcached will probably switch to using
+Memcached::libmemcached as the underlying module.
 
 =head1 AUTHOR
 

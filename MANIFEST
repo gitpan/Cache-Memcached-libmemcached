@@ -14,8 +14,13 @@ t/04_get_multi.t
 t/05_sequence.t
 t/06_flush.t
 t/07_add-replace.t
+t/08_stats.t
+t/09_disconnect.t
 t/99_pod-coverage.t
 t/99_pod.t
+t/behavior/01_distribution_method.t
+t/behavior/02_hash.t
+t/behavior/03_no_block.t
 tools/benchmark.pl
 typemap
 META.yml                                 Module meta-data (added by MakeMaker)

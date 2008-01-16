@@ -1,6 +1,17 @@
 Changes
 =======
 
+0.00005 - 17 Jan 2008
+  - Fix typo in POD.
+  - Implement stats() -- it's a half-baked implementation. Please
+    send patches!
+  - Implement disconnect_all()
+  - Implement some methods that allows you to tweak libmemcached
+    behavior (NOTE: API may not be permanent!)
+    * set_no_block() / is_no_block()
+    * set_distribution_method() / get_distribution_method()
+    * set_hashing_algorithm() / get_hashing_algorithm()
+
 0.00004 - 13 Jan 2008
   - No code change.
   - Note in POD what the differences between other memcached clients are.

@@ -14,6 +14,9 @@ my $data;
 my $memd = Cache::Memcached->new(\%args);
 my $memd_fast = Cache::Memcached::Fast->new(\%args);
 my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
+my $libmemd_no_block = 
+    Cache::Memcached::LibMemcached->new(\%args);
+$libmemd_no_block->set_no_block(1);
 
 {
     print qq|==== Benchmark "Simple get() (scalar)" ====\n|;
@@ -63,13 +66,16 @@ my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
         libmemcached  => sub {
             ($libmemd->get('foo') eq $data) or die;
         },
+        libmemcached  => sub {
+            ($libmemd->get('foo') eq $data) or die;
+        },
     });
 }
 
 {
     print qq|==== Benchmark "Simple set() (scalar)" ====\n|;
     $data = '0123456789' x 10;
-    cmpthese(50_000, {
+    cmpthese(400_000, {
         perl_memcahed => sub {
             $memd->set( 'foo', $data );
         },
@@ -78,6 +84,9 @@ my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
         },
         libmemcached  => sub {
             $libmemd->set( 'foo', $data );
+        },
+        libmemcached_no_block  => sub {
+            $libmemd_no_block->set( 'foo', $data );
         },
     });
 }
@@ -85,7 +94,7 @@ my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
 {
     print qq|==== Benchmark "Simple set() (w/serialize)" ====\n|;
     $data = { foo => [ qw(1 2 3) ] };
-    cmpthese(50_000, {
+    cmpthese(100_000, {
         perl_memcahed => sub {
             $memd->set( 'foo', $data );
         },
@@ -94,6 +103,9 @@ my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
         },
         libmemcached  => sub {
             $libmemd->set( 'foo', $data );
+        },
+        libmemcached_no_block  => sub {
+            $libmemd_no_block->set( 'foo', $data );
         },
     });
 }
@@ -101,7 +113,7 @@ my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
 {
     print qq|==== Benchmark "Simple set() (w/compress)" ====\n|;
     $data = '0123456789' x 500;
-    cmpthese(50_000, {
+    cmpthese(100_000, {
         perl_memcahed => sub {
             $memd->set( 'foo', $data );
         },
@@ -110,6 +122,9 @@ my $libmemd = Cache::Memcached::LibMemcached->new(\%args);
         },
         libmemcached  => sub {
             $libmemd->set( 'foo', $data );
+        },
+        libmemcached_no_block  => sub {
+            $libmemd_no_block->set( 'foo', $data );
         },
     });
 }
