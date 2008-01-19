@@ -4,6 +4,11 @@ use Cache::Memcached;
 use Cache::Memcached::Fast;
 use Cache::Memcached::LibMemcached;
 
+foreach my $module qw(Cache::Memcached Cache::Memcached::Fast Cache::Memcached::LibMemcached) {
+    no strict 'refs';
+    print "$module => " . ${ "${module}::VERSION" }, "\n";
+}
+
 my %args = (
     servers => [ qw(localhost:11211) ],
     compess_threshold => 1_000,
@@ -75,7 +80,7 @@ $libmemd_no_block->set_no_block(1);
 {
     print qq|==== Benchmark "Simple set() (scalar)" ====\n|;
     $data = '0123456789' x 10;
-    cmpthese(400_000, {
+    cmpthese(500_000, {
         perl_memcahed => sub {
             $memd->set( 'foo', $data );
         },

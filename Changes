@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.00006 - 19 Jan 2008
+  - Makefile.PL now uses Devel::CheckLib
+  - Fix replace(), which was doing set() underneath instead of a real replace
+  - Fix t/03_compress.t which wasn't respecting MEMCACHED_SERVER
+  - Update benchmark to run more set() tests, and to report version
+    number for each modules being used.
+
 0.00005 - 17 Jan 2008
   - Fix typo in POD.
   - Implement stats() -- it's a half-baked implementation. Please

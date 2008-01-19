@@ -306,7 +306,7 @@ Cache_LibMemcached_replace(cache, key, value, expires)
     key_char = SvPVbyte(key, key_len);
     value_char = SvPVbyte(value_copy, value_len);
 
-    return memcached_set(MEMCACHED_CACHE(cache), key_char, key_len, value_char, value_len, expires, flags);
+    return memcached_replace(MEMCACHED_CACHE(cache), key_char, key_len, value_char, value_len, expires, flags);
 }
 
 SV *

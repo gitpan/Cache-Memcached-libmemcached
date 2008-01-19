@@ -12,7 +12,7 @@ BEGIN
 }
 
 my $cache = Cache::Memcached::LibMemcached->new( {
-    servers => [ "localhost:11211" ],
+    servers => [ $ENV{ MEMCACHED_SERVER } ],
     compress_threshold => 1_000
 } );
 isa_ok($cache, "Cache::Memcached::LibMemcached");

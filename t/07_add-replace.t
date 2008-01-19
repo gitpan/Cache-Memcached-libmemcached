@@ -17,7 +17,7 @@ my $cache = Cache::Memcached::LibMemcached->new( {
 isa_ok($cache, "Cache::Memcached::LibMemcached");
 
 {
-    $cache->set("foo", "bar", 300);
+    $cache->set("foo", "bar");
     my $val = $cache->get("foo");
     is($val, "bar", "simple value");
 
@@ -39,5 +39,5 @@ isa_ok($cache, "Cache::Memcached::LibMemcached");
 
     # replace() shouldn't update
     $cache->replace("foo", "baz");
-    is( $cache->get("foo"), "baz", "simple value shouldn't have changed via replace()");
+    is( $cache->get("foo"), undef, "keys that don't exist on the server shouldn't have changed via replace()");
 }
