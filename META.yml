@@ -1,15 +1,24 @@
---- #YAML:1.0
-name:                Cache-Memcached-LibMemcached
-version:             0.00006
-abstract:            Perl Interface to libmemcached
-license:             perl
-author:              
-    - Daisuke Maki <daisuke@endeworks.jp>
-generated_by:        ExtUtils::MakeMaker version 6.42
-distribution_type:   module
-requires:     
-    Compress::Zlib:                0
-    Storable:                      0
-meta-spec:
-    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
-    version: 1.3
+--- 
+abstract: Perl Interface to libmemcached
+author: 
+  - Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
+build_requires: 
+  Test::More: 0
+distribution_type: module
+generated_by: Module::Install version 0.68
+license: perl
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.3.html
+  version: 1.3
+name: Cache-Memcached-libmemcached
+no_index: 
+  directory: 
+    - inc
+    - t
+recommends: 
+  Compress::Zlib: 0
+requires: 
+  Carp: 0
+  Memcached::libmemcached: 0.1402
+  Storable: 0
+version: 0.01000
