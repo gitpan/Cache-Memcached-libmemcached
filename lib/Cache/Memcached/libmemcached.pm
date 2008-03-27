@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 43196 2008-03-04T00:25:53.081081Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 48945 2008-03-27T01:55:35.980098Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -10,7 +10,7 @@ use base qw(Memcached::libmemcached);
 use Carp qw(croak);
 use Storable ();
 
-our $VERSION = '0.02000';
+our $VERSION = '0.02001';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -18,6 +18,12 @@ use constant F_COMPRESS   => 2;
 
 BEGIN
 {
+    # Make sure to load bytes.pm if HAVE_ZLIB is enabled
+    if (HAVE_ZLIB) {
+        require bytes;
+    }
+    
+
     # accessors
     foreach my $field qw(compress_enable compress_threshold compress_savings) {
         eval sprintf(<<"        EOSUB", $field, $field, $field, $field);
