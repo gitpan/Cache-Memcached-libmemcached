@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 48945 2008-03-27T01:55:35.980098Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 49208 2008-03-30T14:57:41.553066Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -10,7 +10,7 @@ use base qw(Memcached::libmemcached);
 use Carp qw(croak);
 use Storable ();
 
-our $VERSION = '0.02001';
+our $VERSION = '0.02002';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -22,7 +22,6 @@ BEGIN
     if (HAVE_ZLIB) {
         require bytes;
     }
-    
 
     # accessors
     foreach my $field qw(compress_enable compress_threshold compress_savings) {
@@ -73,6 +72,8 @@ sub new
 
     # behavior options
     $self->set_no_block( $args->{no_block} ) if exists $args->{no_block};
+    $self->set_hashing_algorithm( $args->{hashing_algorithm} ) if exists $args->{hashing_algorithm};
+    $self->set_distribution_method( $args->{distribution_method} ) if exists $args->{distribution_method};
 
     return $self;
 }
@@ -177,43 +178,42 @@ sub disconnect_all
 
 sub stats { die "stats() not implemented" }
 
-sub is_no_block
+BEGIN
 {
-    shift->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_NO_BLOCK() );
-}
-
-sub set_no_block
-{
-    shift->memcached_behavior_set(
-        Memcached::libmemcached::MEMCACHED_BEHAVIOR_NO_BLOCK(),
-        $_[0]
+    my @boolean_behavior = qw( no_block );
+    my %behavior = (
+        distribution_method => 'distribution',
+        hashing_algorithm   => 'hash'
     );
-}
 
-sub get_distribution_method
-{
-    shift->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_DISTRIBUTION() );
-}
+    foreach my $name (@boolean_behavior) {
+        my $code = sprintf(<<'        EOSUB', $name, uc $name, $name, uc $name);
+            sub is_%s {
+                $_[0]->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s() );
+            }
 
-sub set_distribution_method
-{
-    shift->memcached_behavior_set(
-        Memcached::libmemcached::MEMCACHED_BEHAVIOR_DISTRIBUTION(),
-        $_[0]
-    );
-}
+            sub set_%s {
+                $_[0]->memcached_behavior_set( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s(), $_[1] );
+            }
+        EOSUB
+        eval $code;
+        die if $@;
+    }
 
-sub get_hashing_algorithm
-{
-    shift->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_HASH() );
-}
+    while (my($method, $field) = each %behavior) {
+        my $code = sprintf(<<'        EOSUB', $method, uc $field, $method, uc $field);
+            sub get_%s {
+                $_[0]->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s() );
+            }
 
-sub set_hashing_algorithm
-{
-    shift->memcached_behavior_set(
-        Memcached::libmemcached::MEMCACHED_BEHAVIOR_HASH(),
-        $_[0]
-    );
+            sub set_%s {
+                $_[0]->memcached_behavior_set( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s(), $_[1]);
+            }
+        EOSUB
+        eval $code;
+        die if $@;
+    }
+
 }
 
 1;
@@ -248,10 +248,28 @@ Cache::Memcached::libmemcached - Perl Interface to libmemcached
 
   my $hashref = $memd->get_multi(@keys);
 
-  # Constants
+  # Constants - explicitly by name or by tags
+  #    see Memcached::libmemcached::constants for a list
   use Cache::Memcached::libmemcached qw(MEMCACHED_DISTRIBUTION_CONSISTENT);
-  $memd->set_distribution_method(MEMCACHED_DISTRIBUTION_CONSISTENT());
-  
+  use Cache::Memcached::libmemcached qw(
+    :defines
+    :memcached_allocated
+    :memcached_behavior
+    :memcached_callback
+    :memcached_connection
+    :memcached_hash
+    :memcached_return
+    :memcached_server_distribution
+  );
+
+  # Extra constructor options that are not in Cache::Memcached
+  # See Memcached::libmemcached::constants for a list of available options
+  my $memd = Cache::Memcached::libmemcached->new({
+    ...,
+    no_block            => $boolean,
+    distribution_method => $distribution_method,
+    hashing_algorithm   => $hashing_algorithm,
+  });
 
 =head1 DESCRIPTION
 
@@ -564,22 +582,26 @@ This is the "main" module. It's mostly written in Perl.
 Cache::Memcached::libmemcached, which is the module for which your reading
 the document of, is a perl binding for libmemcached (http://tangent.org/552/libmemcached.html). Not to be confused with libmemcache (see below).
 
+=head2 Cache::Memcached::Fast
+
+Cache::Memcached::Fast is a memcached client written in XS from scratch.
+As of this writing benchmarks shows that Cache::Memcached::Fast is faster on 
+get_multi(), and Cache::Memcached::libmemcached is faster on regular get()/set()
+
+=head2 Memcached::libmemcached
+
+Memcached::libmemcached is a straight binding to libmemcached, and is also
+the parent class of this module.
+
+It has most of the libmemcached API. If you don't care about a drop-in 
+replacement for Cache::Memcached, and want to benefit from low level API that
+libmemcached offers, this is the way to go.
+
 =head2 Cache::Memcached::XS
 
 Cache::Memcached::XS is a binding for libmemcache (http://people.freebsd.org/~seanc/libmemcache/).
 The main memcached site at http://danga.com/memcached/apis.bml seems to 
 indicate that the underlying libmemcache is no longer in active development.
-
-=head2 Cache::Memcached::Fast
-
-Cache::Memcached::Fast is a memcached client written in XS from scratch.
-
-=head2 Memcached::libmemcached
-
-Memcached::libmemcached is a straight binding to libmemcached. It has all
-of the libmemcached API. If you don't care about a drop-in replacement for
-Cache::Memcached, and want to benefit from *all* of libmemcached offers,
-this is the way to go.
 
 =head1 CAVEATS
 

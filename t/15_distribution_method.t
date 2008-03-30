@@ -17,10 +17,12 @@ BEGIN
     } );
     isa_ok($cache, "Cache::Memcached::libmemcached");
 
-    ok( ! $cache->is_no_block );
+    is( $cache->get_distribution_method,
+        Memcached::libmemcached::MEMCACHED_DISTRIBUTION_MODULA );
 
-    $cache->set_no_block(1);
-    ok( $cache->is_no_block );
+    $cache->set_distribution_method(Memcached::libmemcached::MEMCACHED_DISTRIBUTION_CONSISTENT);
+    is( $cache->get_distribution_method,
+        Memcached::libmemcached::MEMCACHED_DISTRIBUTION_CONSISTENT );
 
     my $value = "non-block via accessor";
     $cache->remove(__FILE__);
@@ -32,14 +34,16 @@ BEGIN
 {
     my $cache = Cache::Memcached::libmemcached->new( {
         servers => [ $ENV{ MEMCACHED_SERVER } ],
-        no_block => 1,
+        distribution_method => Memcached::libmemcached::MEMCACHED_DISTRIBUTION_CONSISTENT(),
     } );
     isa_ok($cache, "Cache::Memcached::libmemcached");
 
-    ok( $cache->is_no_block );
+    is( $cache->get_distribution_method,
+        Memcached::libmemcached::MEMCACHED_DISTRIBUTION_CONSISTENT );
 
-    $cache->set_no_block(0);
-    ok( !$cache->is_no_block );
+    $cache->set_distribution_method(Memcached::libmemcached::MEMCACHED_DISTRIBUTION_MODULA);
+    is( $cache->get_distribution_method,
+        Memcached::libmemcached::MEMCACHED_DISTRIBUTION_MODULA );
 
     my $value = "non-block via constructor";
     $cache->remove(__FILE__);
