@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 49208 2008-03-30T14:57:41.553066Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 50294 2008-04-13T08:50:24.729351Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -10,7 +10,7 @@ use base qw(Memcached::libmemcached);
 use Carp qw(croak);
 use Storable ();
 
-our $VERSION = '0.02002';
+our $VERSION = '0.02003';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -176,7 +176,32 @@ sub disconnect_all
     $_[0]->memcached_quit();
 }
 
-sub stats { die "stats() not implemented" }
+sub stats
+{
+    my %h;
+    my %misc_keys = map { ($_ => 1) }
+      qw/ bytes bytes_read bytes_written
+          cmd_get cmd_set connection_structures curr_items
+          get_hits get_misses
+          total_connections total_items
+        /; 
+    my $code = sub {
+        my($key, $value, $hostport, $type) = @_;
+
+        # XXX - This is hardcoded in the callback cause r139 in perl-memcached
+        # removed the magic of "misc"
+        $type ||= 'misc';
+        $h{hosts}{$hostport}{$type}{$key} = $value;
+        if ($type eq 'misc') {
+            $h{total}{$key} += $value if $misc_keys{$key};
+        } elsif ($type eq 'malloc') {
+            $h{total}{"malloc_$key"} += $value;
+        }
+        return ();
+    };
+    $_[0]->walk_stats($_, $code) for ('', qw(malloc sizes self));
+    return \%h;
+}
 
 BEGIN
 {
@@ -429,7 +454,8 @@ from Cache::Memcached is, despite its naming, a setter as well.
 
   my $h = $memd->stats();
 
-This method is still half-baked. Patches welcome.
+This method is still half-baked. It gives you some stats. If the values are
+wrong, well, reports, or better yet, patches welcome.
 
 =head2 disconnect_all
 
