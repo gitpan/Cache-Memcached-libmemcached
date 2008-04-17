@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 50294 2008-04-13T08:50:24.729351Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 50653 2008-04-17T15:58:23.005045Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -8,9 +8,10 @@ use strict;
 use warnings;
 use base qw(Memcached::libmemcached);
 use Carp qw(croak);
+use Scalar::Util qw(weaken);
 use Storable ();
 
-our $VERSION = '0.02003';
+our $VERSION = '0.02004';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -105,6 +106,7 @@ sub _mk_callbacks
 {
     my $self = shift;
 
+    weaken($self);
     my $inflate = sub {
         my ($key, $flags) = @_;
         if ($flags & F_COMPRESS) {
