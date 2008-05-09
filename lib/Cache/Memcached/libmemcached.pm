@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 50667 2008-04-17T23:37:58.026202Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 53069 2008-05-09T14:53:59.293004Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -11,7 +11,7 @@ use Carp qw(croak);
 use Scalar::Util qw(weaken);
 use Storable ();
 
-our $VERSION = '0.02005';
+our $VERSION = '0.02006';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -36,7 +36,10 @@ BEGIN
     # proxy these methods
     foreach my $method qw(set add replace prepend append cas) {
         eval <<"        EOSUB";
-            sub $method { shift->memcached_$method(\@_[0, 1], int(\$_[2] || 0)) }
+            sub $method { 
+                my \$self = shift;
+                \$self->memcached_$method(\$self->{namespace} . \$_[0], \$_[1], int(\$_[2] || 0))
+            }
         EOSUB
         die if $@;
     }
@@ -76,6 +79,8 @@ sub new
     $self->set_hashing_algorithm( $args->{hashing_algorithm} ) if exists $args->{hashing_algorithm};
     $self->set_distribution_method( $args->{distribution_method} ) if exists $args->{distribution_method};
 
+    $self->{namespace} = $args->{namespace} || '';
+
     return $self;
 }
 
@@ -100,6 +105,13 @@ sub server_add
     } else {
         $self->memcached_server_add_unix_socket( $server );
     }
+}
+
+sub get
+{
+    my $self = shift;
+    my $key  = shift;
+    $self->SUPER::get($self->{namespace} . $key, @_);
 }
 
 sub _mk_callbacks
