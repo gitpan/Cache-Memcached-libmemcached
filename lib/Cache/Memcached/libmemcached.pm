@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 53069 2008-05-09T14:53:59.293004Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 56510 2008-05-27T13:40:13.246543Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -11,11 +11,12 @@ use Carp qw(croak);
 use Scalar::Util qw(weaken);
 use Storable ();
 
-our $VERSION = '0.02006';
+our $VERSION = '0.02007';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
 use constant F_COMPRESS   => 2;
+use constant OPTIMIZE     => $ENV{PERL_LIBMEMCACHED_OPTIMIZE} ? 1 : 0;
 
 BEGIN
 {
@@ -33,15 +34,49 @@ BEGIN
         die if $@;
     }
 
-    # proxy these methods
-    foreach my $method qw(set add replace prepend append cas) {
-        eval <<"        EOSUB";
-            sub $method { 
-                my \$self = shift;
-                \$self->memcached_$method(\$self->{namespace} . \$_[0], \$_[1], int(\$_[2] || 0))
-            }
-        EOSUB
-        die if $@;
+    if (OPTIMIZE) {
+        # If the optimize flag is enabled, we do not support master key
+        # generation, cause we really care about the speed.
+        foreach my $method qw(get set add replace prepend append cas delete) {
+            eval <<"            EOSUB";
+                sub $method {
+                    my \$self = shift;
+                    my \$key  = shift;
+                    if (\$self->{namespace}) {
+                        \$key = "\$self->{namespace}\$key";
+                    }
+                    \$self->SUPER::memcached_${method}(\$key, \@_)
+                }
+            EOSUB
+            die if $@;
+        }
+    } else {
+        # Regular case.
+        # Mental note. We only do this cause while we're faster than
+        # Cache::Memcached::Fast, *even* when the above optimization isn't
+        # toggled.
+        foreach my $method qw(get set add replace prepend append cas delete) {
+            eval <<"            EOSUB";
+                sub $method { 
+                    my \$self = shift;
+                    my \$key  = shift;
+                    my \$master_key;
+                    if (ref \$key eq 'ARRAY') {
+                        (\$master_key, \$key) = @\$key;
+                    }
+
+                    if (\$self->{namespace}) {
+                        \$key = "\$self->{namespace}\$key";
+                    }
+                    if (\$master_key) {
+                        \$self->SUPER::memcached_${method}_by_key(\$master_key, \$key, \@_);
+                    } else {
+                        \$self->SUPER::memcached_${method}(\$key, \@_);
+                    }
+                }
+            EOSUB
+            die if $@;
+        }
     }
 }
 
@@ -107,13 +142,6 @@ sub server_add
     }
 }
 
-sub get
-{
-    my $self = shift;
-    my $key  = shift;
-    $self->SUPER::get($self->{namespace} . $key, @_);
-}
-
 sub _mk_callbacks
 {
     my $self = shift;
@@ -158,25 +186,29 @@ sub _mk_callbacks
     return ($deflate, $inflate);
 }
 
-sub delete { shift->memcached_delete($_[0], int($_[1] || 0)) }
-
 sub incr
 {
     my $self = shift;
-    $_[0] or croak("No key specified in incr");
-    $_[1] ||= 1 if @_ < 2;
+    my $key  = shift;
+    if ($self->{namespace}) {
+        $key = "$self->{namespace}$key";
+    }
+    $_[0] ||= 1 if @_ < 2;
     my $val = 0;
-    $self->memcached_increment(@_[0,1], $val);
+    $self->memcached_increment($key, $_[0], $val);
     return $val;
 }
 
 sub decr
 {
     my $self = shift;
-    $_[0] or croak("No key specified in decr");
-    $_[1] ||= 1 if @_ < 2;
+    my $key  = shift;
+    if ($self->{namespace}) {
+        $key = "$self->{namespace}$key";
+    }
+    $_[0] ||= 1 if @_ < 2;
     my $val = 0;
-    $self->memcached_decrement(@_[0,1], $val);
+    $self->memcached_decrement($key, $_[0], $val);
     return $val;
 }
 
@@ -209,8 +241,12 @@ sub stats
         $type ||= 'misc';
         $h{hosts}{$hostport}{$type}{$key} = $value;
         if ($type eq 'misc') {
-            $h{total}{$key} += $value if $misc_keys{$key};
+            if ($misc_keys{$key}) {
+                $h{total}{$key} ||= 0;
+                $h{total}{$key} += $value;
+            }
         } elsif ($type eq 'malloc') {
+            $h{total}{"malloc_$key"} ||= 0;
             $h{total}{"malloc_$key"} += $value;
         }
         return ();
@@ -339,10 +375,10 @@ aware of:
 
 =over 4
 
-=item cas() and stats() are not implemented
+=item cas() is not implemented
 
-They were sort of implemented in a previous life, but since 
-Memcached::libmemcached is still undecided how to handle these, we don't
+This was sort of implemented in a previous life, but since 
+Memcached::libmemcached is still undecided how to handle it, we don't
 support it either.
 
 =item performance is probably a bit different
@@ -606,6 +642,18 @@ Get the hashing algorithm used.
   } );
 
 Enable/disable CAS support.
+
+=head1 OPTIMIZE FLAG
+
+There's an EXPERIMENTAL optimization available for some corner cases, where
+if you know before hand that you won't be using some features, you can
+disable them all together for some performance boost. To enable this mode,
+set an environment variable named PERL_LIBMEMCACHED_OPTIMIZE to a true value
+
+=head2 NO MASTER KEY SUPPORT
+
+If you are 100% sure that you won't be using the master key support, where 
+you provide an arrayref as the key, you get about 4~5% performance boost.
 
 =head1 VARIOUS MEMCACHED MODULES
 
