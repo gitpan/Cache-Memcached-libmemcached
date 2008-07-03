@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 56510 2008-05-27T13:40:13.246543Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 64877 2008-07-03T10:38:54.200292Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -11,7 +11,7 @@ use Carp qw(croak);
 use Scalar::Util qw(weaken);
 use Storable ();
 
-our $VERSION = '0.02007';
+our $VERSION = '0.02008';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -190,12 +190,12 @@ sub incr
 {
     my $self = shift;
     my $key  = shift;
+    my $offset = shift || 1;
     if ($self->{namespace}) {
         $key = "$self->{namespace}$key";
     }
-    $_[0] ||= 1 if @_ < 2;
     my $val = 0;
-    $self->memcached_increment($key, $_[0], $val);
+    $self->memcached_increment($key, $offset, $val);
     return $val;
 }
 
@@ -203,12 +203,12 @@ sub decr
 {
     my $self = shift;
     my $key  = shift;
+    my $offset = shift || 1;
     if ($self->{namespace}) {
         $key = "$self->{namespace}$key";
     }
-    $_[0] ||= 1 if @_ < 2;
     my $val = 0;
-    $self->memcached_decrement($key, $_[0], $val);
+    $self->memcached_decrement($key, $offset, $val);
     return $val;
 }
 

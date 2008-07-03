@@ -30,6 +30,7 @@ t/14_no_block.t
 t/15_distribution_method.t
 t/16_hashing_algorithm.t
 t/17_namespace.t
+t/18_incr_decr.t
 t/99_pod-coverage.t
 t/99_pod.t
 tools/benchmark.pl
