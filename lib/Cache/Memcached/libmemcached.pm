@@ -1,4 +1,4 @@
-# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 64877 2008-07-03T10:38:54.200292Z daisuke  $
+# $Id: /mirror/coderepos/lang/perl/Cache-Memcached-libmemcached/trunk/lib/Cache/Memcached/libmemcached.pm 102844 2009-03-27T00:36:19.640128Z daisuke  $
 #
 # Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>
 # All rights reserved.
@@ -11,7 +11,7 @@ use Carp qw(croak);
 use Scalar::Util qw(weaken);
 use Storable ();
 
-our $VERSION = '0.02008';
+our $VERSION = '0.02009';
 
 use constant HAVE_ZLIB    => eval { require Compress::Zlib } && !$@;
 use constant F_STORABLE   => 1;
@@ -210,6 +210,15 @@ sub decr
     my $val = 0;
     $self->memcached_decrement($key, $offset, $val);
     return $val;
+}
+
+sub get_multi {
+    my $self = shift;
+
+    my $namespace = $self->{namespace};
+    my @keys = $namespace ? map { "$namespace$_" } @_ : @_;
+    my $hash = $self->SUPER::get_multi(@keys);
+    return $namespace ? +{ map { ($_ => $hash->{"$namespace$_"}) } @_ } : $hash;
 }
 
 sub flush_all
