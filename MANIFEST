@@ -33,4 +33,5 @@ t/17_namespace.t
 t/18_incr_decr.t
 t/99_pod-coverage.t
 t/99_pod.t
+t/lib/libmemcached_test.pm
 tools/benchmark.pl
