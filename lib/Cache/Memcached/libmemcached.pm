@@ -30,6 +30,7 @@ BEGIN
         die if $@;
     }
 
+    # XXX this should be done via subclasses
     if (OPTIMIZE) {
         # If the optimize flag is enabled, we do not support master key
         # generation, cause we really care about the speed.
@@ -106,7 +107,9 @@ sub new
     );
 
     # behavior options
-    foreach my $option qw(no_block hashing_algorithm distribution_method binary_protocol) {
+    foreach my $option qw(
+        no_block hashing_algorithm distribution_method binary_protocol
+    ) {
         my $method = "set_$option";
         $self->$method( $args->{$option} ) if exists $args->{$option};
     }
@@ -174,7 +177,7 @@ sub _mk_callbacks
             my $length = bytes::length($_);
             if ($length > $self->{compress_threshold}) {
                 my $tmp = Compress::Zlib::memGzip($_);
-                if (1 - bytes::length($tmp) / $length < $self->{compress_savingsS}) {
+                if (bytes::length($tmp) / $length < 1 - $self->{compress_savingsS}) {
                     $_ = $tmp;
                     $_[1] |= F_COMPRESS;
                 }
@@ -237,66 +240,98 @@ sub version {
 
 sub stats
 {
-    my %h;
-    my %misc_keys = map { ($_ => 1) }
-      qw/ bytes bytes_read bytes_written
-          cmd_get cmd_set connection_structures curr_items
-          get_hits get_misses
-          total_connections total_items
-        /; 
-    my $code = sub {
-        my($key, $value, $hostport, $type) = @_;
+    my $self = shift;
+    my ($stats_args) = @_;
 
-        # XXX - This is hardcoded in the callback cause r139 in perl-memcached
-        # removed the magic of "misc"
-        $type ||= 'misc';
-        $h{hosts}{$hostport}{$type}{$key} = $value;
-        if ($type eq 'misc') {
-            if ($misc_keys{$key}) {
-                $h{total}{$key} ||= 0;
-                $h{total}{$key} += $value;
+    # http://github.com/memcached/memcached/blob/master/doc/protocol.txt
+    $stats_args ||= [
+        # XXX 'malloc' and 'self' aren't valid at the protocol level but are
+        # possibly mapped to something else in deeper code?
+        '', 'malloc', 'sizes', 'self',
+        # 'items', 'slabs', 'settings'
+    ];
+
+    # stats keys that aren't matched by the prefix and suffix regexes below
+    # but which we want to accumulate in totals
+    my %total_misc_keys = map { ($_ => 1) } qw(
+        bytes evictions
+        connection_structures curr_connections total_connections
+    ); 
+
+    my %h;
+    for my $type (@$stats_args) {
+
+        my $code = sub {
+            my ($key, $value, $hostport) = @_;
+
+            # XXX - This is hardcoded in the callback cause r139 in perl-memcached
+            # removed the magic of "misc"
+            $type ||= 'misc';
+            $h{hosts}{$hostport}{$type}{$key} = $value;
+            #warn "$_ ($key, $value, $hostport, $type)\n";
+
+            # accumulate overall totals for some items
+            if ($type eq 'misc') {
+                if ($total_misc_keys{$key}
+                or $key =~ /^(?:cmd|bytes)_/ # prefixes
+                or $key =~ /_(?:hits|misses|errors|yields|badval|items|read|written)$/ # suffixes
+                ) {
+                    $h{total}{$key} += $value;
+                }
             }
-        } elsif ($type eq 'malloc') {
-            $h{total}{"malloc_$key"} ||= 0;
-            $h{total}{"malloc_$key"} += $value;
-        }
-        return ();
-    };
-    $_[0]->walk_stats($_, $code) for ('', qw(malloc sizes self));
+            elsif ($type eq 'malloc' or $type eq 'sizes') {
+                $h{total}{"${type}_$key"} += $value;
+            }
+            return;
+        };
+
+        $self->walk_stats($type, $code);
+    }
+
     return \%h;
 }
 
 BEGIN
 {
-    my @boolean_behavior = qw( no_block binary_protocol );
+    my @boolean_behavior = qw(
+        no_block binary_protocol tcp_nodelay use_udp noreply
+        verify_key sort_hosts
+    );
+    # These are documented by libmemcached but don't exist:
+    # keepalive (MEMCACHED_BEHAVIOR_KEEPALIVE)
     my %behavior = (
         distribution_method => 'distribution',
-        hashing_algorithm   => 'hash'
+        hashing_algorithm   => 'hash',
+        # others, where we use the same name as Memcached::libmemcached
+        map { $_ => $_ } qw(
+            snd_timeout rcv_timeout poll_timeout connect_timeout
+            buffer_requests server_failure_limit auto_eject_hosts retry_timeout
+            io_msg_watermark io_bytes_watermark io_key_prefetch
+            number_of_replicas randomize_replica_read
+            socket_send_size socket_recv_size
+        )
+        # These are documented by libmemcached but don't exist:
+        # keepalive_idle (MEMCACHED_BEHAVIOR_KEEPALIVE_IDLE)
     );
 
     foreach my $name (@boolean_behavior) {
-        my $code = sprintf(<<'        EOSUB', $name, uc $name, $name, uc $name);
-            sub is_%s {
-                $_[0]->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s() );
-            }
-
-            sub set_%s {
-                $_[0]->memcached_behavior_set( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s(), $_[1] );
-            }
+        my $behaviour = "Memcached::libmemcached::MEMCACHED_BEHAVIOR_\U$name";
+        warn "$behaviour doesn't exist\n" unless defined &$behaviour;
+        my $code = sprintf(<<'        EOSUB', $name, $behaviour, $name, $behaviour);
+            sub is_%s  { $_[0]->memcached_behavior_get( %s()        ) }
+            sub set_%s { $_[0]->memcached_behavior_set( %s(), $_[1] ) }
         EOSUB
         eval $code;
         die if $@;
     }
 
     while (my($method, $field) = each %behavior) {
-        my $code = sprintf(<<'        EOSUB', $method, uc $field, $method, uc $field);
-            sub get_%s {
-                $_[0]->memcached_behavior_get( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s() );
-            }
-
-            sub set_%s {
-                $_[0]->memcached_behavior_set( Memcached::libmemcached::MEMCACHED_BEHAVIOR_%s(), $_[1]);
-            }
+        my $behaviour = "Memcached::libmemcached::MEMCACHED_BEHAVIOR_\U$field";
+        no strict 'refs';
+        warn "$behaviour doesn't exist\n" unless defined &$behaviour;
+        my $code = sprintf(<<'        EOSUB', $method, $behaviour, $method, $behaviour);
+            sub get_%s { $_[0]->memcached_behavior_get( %s()       ) }
+            sub set_%s { $_[0]->memcached_behavior_set( %s(), $_[1]) }
         EOSUB
         eval $code;
         die if $@;
