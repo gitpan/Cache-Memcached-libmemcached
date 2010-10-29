@@ -21,7 +21,7 @@ recommends:
   Compress::Zlib: 0
 requires:
   Carp: 0
-  Memcached::libmemcached: 0.4404
+  Memcached::libmemcached: 0.4405
   Storable: 0
   Task::Weaken: 0
 resources:
