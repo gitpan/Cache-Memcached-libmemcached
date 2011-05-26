@@ -1,5 +1,5 @@
 ---
-abstract: 'Cache interface to Memcached::libmemcached'
+abstract: 'Perl Interface to libmemcached'
 author:
   - 'Copyright (c) 2008 Daisuke Maki <daisuke@endeworks.jp>'
 build_requires:
@@ -21,9 +21,9 @@ recommends:
   Compress::Zlib: 0
 requires:
   Carp: 0
-  Memcached::libmemcached: 0.4405
+  Memcached::libmemcached: 0.4201
   Storable: 0
   Task::Weaken: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.03001
+version: 0.02010
